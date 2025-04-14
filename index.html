@@ -109,6 +109,14 @@ function render(){
         }
         onAdd(map, gl) {
             this.map = map;
+            gl.enable(gl.STENCIL_TEST);
+            gl.stencilMask(0xFF);
+            gl.clearStencil(0);
+            gl.clear(gl.STENCIL_BUFFER_BIT);
+            
+            // Configuration du stencil test
+            gl.stencilFunc(gl.EQUAL, 0, 0xFF);  // Dessiner seulement où le stencil = 0
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);  // Incrémenter 
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             gl.blendEquation(gl.FUNC_ADD);
@@ -136,7 +144,7 @@ function render(){
             const fragmentSource = `
             precision mediump float;
             void main() {
-                gl_FragColor = vec4(0.0, 0.0, 0.0, 0.7);
+                gl_FragColor = vec4(0.0, 0.0, 0.0, 0.5);
             }
             `;
             const vertexShader = gl.createShader(gl.VERTEX_SHADER);
@@ -161,16 +169,28 @@ function render(){
         }
         render(gl, matrix) {
             gl.useProgram(this.program);
-            //gl.disable(gl.DEPTH_TEST);
+
+            // Nettoyer le stencil buffer
+            gl.enable(gl.STENCIL_TEST);
+            gl.stencilMask(0xFF);
+            gl.clearStencil(0);
+            gl.clear(gl.STENCIL_BUFFER_BIT);
+            
+            // Configurer le stencil test pour n'écrire que là où aucune ombre n'existe
+            gl.stencilFunc(gl.EQUAL, 0, 0xFF);
+            gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+            gl.stencilMask(0xFF);
+
+            // Configurer le blending pour éviter l'addition des ombres
             gl.enable(gl.BLEND);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            gl.blendEquation(gl.FUNC_ADD);
-
-            gl.enable(gl.DEPTH_TEST);   // S'assurer que le test est activé
-            gl.depthMask(false); 
-
+            gl.blendFunc(gl.ONE, gl.ZERO);  // Remplacer au lieu d'additionner
+            
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LESS);
+            gl.depthMask(false);
+            
             gl.enable(gl.POLYGON_OFFSET_FILL);
-            gl.polygonOffset(1.0, 1.0); // Ajustez ces valeurs si nécessaire
+            gl.polygonOffset(1.0, 1.0);
 
             const source = this.map.style.sourceCaches['composite'];
             const coords = source.getVisibleCoordinates().reverse();
@@ -184,10 +204,10 @@ function render(){
                 anchor: 'map',
                 position: [1.5, 180 + pos.azimuth * 180 / Math.PI, 90 - pos.altitude * 180 / Math.PI],
                 'position-transition': {duration: 0},
-                //color: '#fdb'
-                 color: `hsl(20, ${50 * Math.cos(pos.altitude)}%, ${ 200 * Math.sin(pos.altitude) }%)`
+                color: `hsl(20, ${50 * Math.cos(pos.altitude)}%, ${ 200 * Math.sin(pos.altitude) }%)`
             }, {duration: 0});
             this.opacity = Math.sin(Math.max(pos.altitude, 0)) * 0.9;
+            
             for (const coord of coords) {
                 const tile = source.getTile(coord);
                 const bucket = tile.getBucket(buildingsLayer);
@@ -195,6 +215,7 @@ function render(){
                 const [heightBuffer, baseBuffer] = bucket.programConfigurations.programConfigurations['3d-buildings']._buffers;
                 gl.uniformMatrix4fv(this.uMatrix, false, coord.posMatrix);
                 gl.uniform1f(this.uHeightFactor, Math.pow(2, coord.overscaledZ) / tile.tileSize / 8);
+                
                 for (const segment of bucket.segments.get()) {
                     const numPrevAttrib = context.currentNumAttributes || 0;
                     const numNextAttrib = 2;
@@ -216,8 +237,13 @@ function render(){
                     gl.drawElements(gl.TRIANGLES, segment.primitiveLength * 3, gl.UNSIGNED_SHORT, segment.primitiveOffset * 3 * 2);
                 }
             }
+            
+            // Restaurer les états par défaut
+            gl.disable(gl.STENCIL_TEST);
             gl.disable(gl.POLYGON_OFFSET_FILL);
-            gl.depthMask(true); // Réactiver l'écriture en profondeur pour les autres couches
+            gl.depthMask(true);
+            gl.depthFunc(gl.LESS);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // Restaurer le blending normal
         }
     }
     map.on('load', () => {
@@ -238,6 +264,5 @@ function render(){
         map.addLayer(new BuildingShadows(), '3d-buildings');
     });
 }
-</script>
-</body>
+</script></body>
 </html>
