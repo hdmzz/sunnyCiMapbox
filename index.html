@@ -74,7 +74,6 @@ async function initCoord() {
         }
     } catch (error) {
         console.error("Impossible d'obtenir la position:", error);
-        // Utiliser les coordonnées par défaut
     } finally {
         render();
     }
@@ -126,17 +125,12 @@ function render(){
         }
         onAdd(map, gl) {
             this.map = map;
-            gl.enable(gl.STENCIL_TEST);
-            gl.stencilMask(0xFF);
-            gl.clearStencil(0);
-            gl.clear(gl.STENCIL_BUFFER_BIT);
             
-            // Configuration du stencil test
-            gl.stencilFunc(gl.EQUAL, 0, 0xFF);  // Dessiner seulement où le stencil = 0
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.INCR);  // Incrémenter 
+            // Configuration du blend - plus simple et plus fiable
             gl.enable(gl.BLEND);
             gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-            gl.blendEquation(gl.FUNC_ADD);
+            
+            // Shader sécurisé pour mobile
             const vertexSource = `
             uniform mat4 u_matrix;
             uniform float u_height_factor;
@@ -151,116 +145,139 @@ function render(){
                 float height = max(0.0, a_height.x);
                 float t = mod(a_normal_ed.x, 2.0);
                 vec4 pos = vec4(a_pos, t > 0.0 ? height : base, 1);
-                float len = pos.z * u_height_factor / tan(u_altitude);
+                
+                // Éviter division par zéro ou valeur très petite
+                float alt = max(0.1, u_altitude);
+                // Limiter la longueur pour éviter les artefacts
+                float len = min(500.0, pos.z * u_height_factor / tan(alt));
+                
                 pos.x += cos(u_azimuth) * len;
                 pos.y += sin(u_azimuth) * len;
                 pos.z = 0.0;
                 gl_Position = u_matrix * pos;
             }
             `;
+            
             const fragmentSource = `
             precision mediump float;
+            uniform float u_opacity;
             void main() {
                 gl_FragColor = vec4(0.0, 0.0, 0.0, 0.5);
             }
             `;
+            
             const vertexShader = gl.createShader(gl.VERTEX_SHADER);
             gl.shaderSource(vertexShader, vertexSource);
             gl.compileShader(vertexShader);
+            
             const fragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
             gl.shaderSource(fragmentShader, fragmentSource);
             gl.compileShader(fragmentShader);
+            
             this.program = gl.createProgram();
             gl.attachShader(this.program, vertexShader);
             gl.attachShader(this.program, fragmentShader);
             gl.linkProgram(this.program);
-            gl.validateProgram(this.program);
+            
             this.uMatrix = gl.getUniformLocation(this.program, "u_matrix");
             this.uHeightFactor = gl.getUniformLocation(this.program, "u_height_factor");
             this.uAltitude = gl.getUniformLocation(this.program, "u_altitude");
             this.uAzimuth = gl.getUniformLocation(this.program, "u_azimuth");
+            this.uOpacity = gl.getUniformLocation(this.program, "u_opacity");
             this.aPos = gl.getAttribLocation(this.program, "a_pos");
             this.aNormal = gl.getAttribLocation(this.program, "a_normal_ed");
             this.aBase = gl.getAttribLocation(this.program, "a_base");
             this.aHeight = gl.getAttribLocation(this.program, "a_height");
         }
+        
         render(gl, matrix) {
             gl.useProgram(this.program);
-
-            // Nettoyer le stencil buffer
-            gl.enable(gl.STENCIL_TEST);
-            gl.stencilMask(0xFF);
-            gl.clearStencil(0);
-            gl.clear(gl.STENCIL_BUFFER_BIT);
             
-            // Configurer le stencil test pour n'écrire que là où aucune ombre n'existe
-            gl.stencilFunc(gl.EQUAL, 0, 0xFF);
-            gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-            gl.stencilMask(0xFF);
-
-            // Configurer le blending pour éviter l'addition des ombres
+            // Configuration simple et fiable
             gl.enable(gl.BLEND);
-            gl.blendFunc(gl.ONE, gl.ZERO);  // Remplacer au lieu d'additionner
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
             
             gl.enable(gl.DEPTH_TEST);
-            gl.depthFunc(gl.LESS);
+            gl.depthFunc(gl.LEQUAL);
             gl.depthMask(false);
             
-            gl.enable(gl.POLYGON_OFFSET_FILL);
-            gl.polygonOffset(1.0, 1.0);
-
             const source = this.map.style.sourceCaches['composite'];
             const coords = source.getVisibleCoordinates().reverse();
             const buildingsLayer = map.getLayer('3d-buildings');
             const context = this.map.painter.context;
             const {lng, lat} = this.map.getCenter();
             const pos = SunCalc.getPosition(date, lat, lng);
-            gl.uniform1f(this.uAltitude, pos.altitude);
+            
+            // Garantir une altitude positive et limiter l'opacité
+            const safeAltitude = Math.max(0.1, pos.altitude);
+            const safeOpacity = Math.min(0.5, Math.sin(Math.max(pos.altitude, 0)) * 0.6);
+            
+            gl.uniform1f(this.uAltitude, safeAltitude);
             gl.uniform1f(this.uAzimuth, pos.azimuth + 3 * Math.PI / 2);
+            gl.uniform1f(this.uOpacity, safeOpacity);
+            
             map.setLight({
                 anchor: 'map',
                 position: [1.5, 180 + pos.azimuth * 180 / Math.PI, 90 - pos.altitude * 180 / Math.PI],
                 'position-transition': {duration: 0},
-                color: `hsl(20, ${50 * Math.cos(pos.altitude)}%, ${ 200 * Math.sin(pos.altitude) }%)`
+                //color: `hsl(20, ${50 * Math.cos(pos.altitude)}%, ${ 200 * Math.sin(pos.altitude) }%)`
+                color: `#e5e5e5`
             }, {duration: 0});
-            this.opacity = Math.sin(Math.max(pos.altitude, 0)) * 0.9;
             
             for (const coord of coords) {
                 const tile = source.getTile(coord);
+                if (!tile) continue;
+                
                 const bucket = tile.getBucket(buildingsLayer);
                 if (!bucket) continue;
-                const [heightBuffer, baseBuffer] = bucket.programConfigurations.programConfigurations['3d-buildings']._buffers;
-                gl.uniformMatrix4fv(this.uMatrix, false, coord.posMatrix);
-                gl.uniform1f(this.uHeightFactor, Math.pow(2, coord.overscaledZ) / tile.tileSize / 8);
                 
-                for (const segment of bucket.segments.get()) {
-                    const numPrevAttrib = context.currentNumAttributes || 0;
-                    const numNextAttrib = 2;
-                    for (let i = numNextAttrib; i < numPrevAttrib; i++) gl.disableVertexAttribArray(i);
-                    const vertexOffset = segment.vertexOffset || 0;
-                    gl.enableVertexAttribArray(this.aPos);
-                    gl.enableVertexAttribArray(this.aNormal);
-                    gl.enableVertexAttribArray(this.aHeight);
-                    gl.enableVertexAttribArray(this.aBase);
-                    bucket.layoutVertexBuffer.bind();
-                    gl.vertexAttribPointer(this.aPos, 2, gl.SHORT, false, 12, 12 * vertexOffset);
-                    gl.vertexAttribPointer(this.aNormal, 4, gl.SHORT, false, 12, 4 + 12 * vertexOffset);
-                    heightBuffer.bind();
-                    gl.vertexAttribPointer(this.aHeight, 1, gl.FLOAT, false, 4, 4 * vertexOffset);
-                    baseBuffer.bind();
-                    gl.vertexAttribPointer(this.aBase, 1, gl.FLOAT, false, 4, 4 * vertexOffset);
-                    bucket.indexBuffer.bind();
-                    context.currentNumAttributes = numNextAttrib;
-                    gl.drawElements(gl.TRIANGLES, segment.primitiveLength * 3, gl.UNSIGNED_SHORT, segment.primitiveOffset * 3 * 2);
+                try {
+                    const buffers = bucket.programConfigurations.programConfigurations['3d-buildings']._buffers;
+                    if (!buffers || buffers.length < 2) continue;
+                    
+                    const [heightBuffer, baseBuffer] = buffers;
+                    
+                    gl.uniformMatrix4fv(this.uMatrix, false, coord.posMatrix);
+                    gl.uniform1f(this.uHeightFactor, Math.pow(2, coord.overscaledZ) / tile.tileSize / 8);
+                    
+                    for (const segment of bucket.segments.get()) {
+                        const numPrevAttrib = context.currentNumAttributes || 0;
+                        const numNextAttrib = 4;
+                        for (let i = numNextAttrib; i < numPrevAttrib; i++) {
+                            gl.disableVertexAttribArray(i);
+                        }
+                        
+                        const vertexOffset = segment.vertexOffset || 0;
+                        
+                        gl.enableVertexAttribArray(this.aPos);
+                        gl.enableVertexAttribArray(this.aNormal);
+                        gl.enableVertexAttribArray(this.aHeight);
+                        gl.enableVertexAttribArray(this.aBase);
+                        
+                        bucket.layoutVertexBuffer.bind();
+                        gl.vertexAttribPointer(this.aPos, 2, gl.SHORT, false, 12, 12 * vertexOffset);
+                        gl.vertexAttribPointer(this.aNormal, 4, gl.SHORT, false, 12, 4 + 12 * vertexOffset);
+                        
+                        heightBuffer.bind();
+                        gl.vertexAttribPointer(this.aHeight, 1, gl.FLOAT, false, 4, 4 * vertexOffset);
+                        
+                        baseBuffer.bind();
+                        gl.vertexAttribPointer(this.aBase, 1, gl.FLOAT, false, 4, 4 * vertexOffset);
+                        
+                        bucket.indexBuffer.bind();
+                        context.currentNumAttributes = numNextAttrib;
+                        
+                        gl.drawElements(gl.TRIANGLES, segment.primitiveLength * 3, gl.UNSIGNED_SHORT, segment.primitiveOffset * 3 * 2);
+                    }
+                } catch (e) {
+                    console.log("Erreur de rendu:", e);
                 }
             }
             
-            // Restaurer les états par défaut
-            gl.disable(gl.STENCIL_TEST);
-            gl.disable(gl.POLYGON_OFFSET_FILL);
+            // Restaurer les états
             gl.depthMask(true);
             gl.depthFunc(gl.LESS);
-            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); // Restaurer le blending normal
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         }
     }
     map.on('load', () => {
