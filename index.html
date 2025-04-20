@@ -6,7 +6,67 @@
     <meta charset='utf-8'>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v2.12.0/mapbox-gl.css' rel='stylesheet' />
-    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        html,
+        body,
+        #map {
+            height: 100%;
+        }
+
+        #time {
+            position: absolute;
+            width: 80%;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+        
+        #timeDisplay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: sans-serif;
+            font-size: 14px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            z-index: 10; /* S'assurer que l'élément est au-dessus des contrôles */
+        }
+
+        /* Ajuster la position pour éviter les conflits avec les contrôles Mapbox */
+        .mapboxgl-ctrl-top-right {
+            top: 40px !important; /* Décaler les contrôles Mapbox vers le bas */
+        }
+        
+        #locationStatus {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: sans-serif;
+            font-size: 14px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        
+        #requestLocation {
+            margin-left: 10px;
+            padding: 4px 8px;
+            background-color: #0078ff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 
 <body>
