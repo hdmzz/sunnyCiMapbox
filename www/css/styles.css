@@ -1,0 +1,260 @@
+/* Variables CSS pour une cohérence du design */
+:root {
+    --primary-color: #0078ff;
+    --primary-dark: #0056b3;
+    --light-bg: rgba(255,255,255,0.8);
+    --text-color: #333;
+    --shadow: 0 2px 5px rgba(0,0,0,0.2);
+    --border-radius: 4px;
+    --padding-normal: 8px 12px;
+    --control-height: 36px;
+}
+body {
+    margin: 0;
+    padding: 0;
+}
+
+html,
+body,
+#map {
+    height: 100%;
+}
+
+#time {
+    position: absolute;
+    width: 80%;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+}
+
+#timeDisplay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(255,255,255,0.8);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-family: sans-serif;
+    font-size: 14px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    z-index: 10; /* S'assurer que l'élément est au-dessus des contrôles */
+}
+
+/* Ajuster la position pour éviter les conflits avec les contrôles Mapbox */
+.mapboxgl-ctrl-top-right {
+    top: 40px !important; /* Décaler les contrôles Mapbox vers le bas */
+}
+
+#locationStatus {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: rgba(255,255,255,0.8);
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-family: sans-serif;
+    font-size: 14px;
+    box-shadow: 0 0 5px rgba(0,0,0,0.3);
+    z-index: 10;
+}
+
+#requestLocation {
+    margin-left: 10px;
+    padding: 4px 8px;
+    background-color: #0078ff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: var(--text-color);
+}
+
+html, body, #map {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+
+/* Contrôle du temps */
+#time {
+    position: absolute;
+    width: 80%;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    height: 6px;
+    appearance: none;
+    background: var(--light-bg);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    outline: none;
+}
+
+#time::-webkit-slider-thumb {
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#time::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: var(--primary-color);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#timeDisplay {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: var(--light-bg);
+    padding: var(--padding-normal);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    z-index: 10;
+    font-weight: 500;
+}
+
+/* Ajuster la position des contrôles Mapbox */
+.mapboxgl-ctrl-top-right {
+    top: 40px !important;
+}
+
+/* Statut de localisation */
+#locationStatus {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    background: var(--light-bg);
+    padding: var(--padding-normal);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Empêcher le zoom sur les écrans tactiles */
+.no-zoom-touch {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    user-select: none;
+}
+
+/* Bouton de localisation */
+#requestLocation {
+    margin-left: 10px;
+    padding: var(--padding-normal);
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    min-height: var(--control-height);
+    font-size: 16px;
+    transition: background-color 0.2s ease;
+}
+
+#requestLocation:hover {
+    background-color: var(--primary-dark);
+}
+
+#requestLocation:active {
+    transform: scale(0.98);
+}
+
+/* Popups pour les arbres */
+.tree-popup {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.tree-popup h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+    border-bottom: 1px solid #eee;
+    padding-bottom: 6px;
+}
+
+.tree-popup ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.tree-popup li {
+    margin-bottom: 4px;
+}
+
+/* Message d'erreur */
+.error-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #ff3b30;
+    color: white;
+    padding: 16px 24px;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    z-index: 1000;
+    max-width: 80%;
+    text-align: center;
+}
+
+/* Media query pour les appareils tactiles */
+@media (pointer: coarse) {
+    #locationStatus {
+        padding: 12px 16px;
+        font-size: 16px;
+    }
+    
+    #requestLocation {
+        padding: 12px 16px;
+        font-size: 18px;
+    }
+    
+    #time {
+        height: 8px;
+    }
+    
+    #time::-webkit-slider-thumb {
+        width: 24px;
+        height: 24px;
+    }
+    
+    #time::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* Loading spinner pour les charges de données */
+.loading-spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}

@@ -1,0 +1,11 @@
+{
+  "appId": "com.sunnici.app",
+  "appName": "Sunnici",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": false
+    }
+  }
+}
